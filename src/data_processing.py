@@ -37,51 +37,31 @@ def load_hydraulic():
 
 def load_data_metro():
     print("--- Procesando dataset MetroPT-3 ---")
-    df = pd.read_csv(r"C:\Users\mayta\Desktop\XAI\datasets\MetroPT3(AirCompressor).csv")
+    df = pd.read_csv(DATASETS["metro"]["ruta_origen"])
     df.drop(df.columns[0], axis=1, inplace=True)
 
-    df = df.drop(['DV_eletric', 'TP3', 'H1', 'COMP', 'MPG'], axis=1, inplace=False) # Aqui se han quedado Reservoirs y TP2
+    df = df.drop(DATASETS["metro"]["variables_eliminar"], axis=1, inplace=False) # Aqui se han quedado Reservoirs y TP2
 
     # Nos aseguramos de que 'timestamp' es de tipo datetime y el índice
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df = df.set_index('timestamp')
 
     # Remuestrea a intervalos de 1 hora, aplicando una función agregada (por ejemplo, la media)
-    df = df.asfreq('30min', method='ffill')
+    df = df.asfreq(DATASETS["metro"]["resample_freq"], method=DATASETS["metro"]["fill_method"])
 
     # Se ordena el dataset cronologicamente
     df = df.sort_index()
-
-    # Lista de intervalos: cada tupla es (inicio, fin)
-    intervalos = [
-        (pd.Timestamp("2020-04-12 11:50:00"), pd.Timestamp("2020-04-12 23:30:00")),# Train
-        (pd.Timestamp("2020-04-18 00:00:00"), pd.Timestamp("2020-04-19 01:30:00")),#
-        (pd.Timestamp("2020-04-29 03:20:00"), pd.Timestamp("2020-04-29 04:00:00")),
-        (pd.Timestamp("2020-04-29 22:00:00"), pd.Timestamp("2020-04-29 22:20:00")),
-        (pd.Timestamp("2020-05-13 14:00:00"), pd.Timestamp("2020-05-13 23:59:00")),
-        (pd.Timestamp("2020-05-18 05:00:00"), pd.Timestamp("2020-05-18 05:30:00")),
-        (pd.Timestamp("2020-05-19 10:10:00"), pd.Timestamp("2020-05-19 11:00:00")),
-        (pd.Timestamp("2020-05-19 22:10:00"), pd.Timestamp("2020-05-20 20:00:00")),
-        (pd.Timestamp("2020-05-23 09:50:00"), pd.Timestamp("2020-05-23 10:10:00")),
-        (pd.Timestamp("2020-05-29 23:30:00"), pd.Timestamp("2020-05-30 06:00:00")),#
-        (pd.Timestamp("2020-06-01 15:00:00"), pd.Timestamp("2020-06-01 15:40:00")),
-        (pd.Timestamp("2020-06-03 10:00:00"), pd.Timestamp("2020-06-03 11:00:00")),
-        (pd.Timestamp("2020-06-05 10:00:00"), pd.Timestamp("2020-06-07 14:30:00")),#
-        (pd.Timestamp("2020-07-08 17:30:00"), pd.Timestamp("2020-07-08 19:00:00")),# <------ (1h30) Test empieza aquí
-        (pd.Timestamp("2020-07-15 14:30:00"), pd.Timestamp("2020-07-15 19:00:00")),# <------ (4h30)
-        (pd.Timestamp("2020-07-17 04:30:00"), pd.Timestamp("2020-07-17 05:30:00"))
-    ]
 
     # Inicializamos la columna binaria en 0
     df['failure'] = 0
 
     # Iteramos sobre cada intervalo y asignamos 1 a los rangos correspondientes
-    for inicio, fin in intervalos:
+    for inicio, fin in DATASETS["metro"]["intervalos"]:
         df.loc[(df.index >= inicio) & (df.index <= fin), 'failure'] = 1
 
 
     # Calcular el índice de división para obtener el 60% de los datos
-    split_index = int(0.6 * len(df))
+    split_index = int((1 - TEST_SIZE) * len(df))
 
     # Dividir en conjuntos de entrenamiento y prueba
     train_dataset = df.iloc[:split_index]

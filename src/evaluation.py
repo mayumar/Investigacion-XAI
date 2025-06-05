@@ -51,7 +51,7 @@ def evaluar_modelo(metricas, clf_name, y_test, prediction, normalizado, contamin
         # (pd.Timestamp("2020-04-18 00:00:00"), pd.Timestamp("2020-04-19 01:30:00")),#
         # (pd.Timestamp("2020-04-29 03:20:00"), pd.Timestamp("2020-04-29 04:00:00")),
         # (pd.Timestamp("2020-04-29 22:00:00"), pd.Timestamp("2020-04-29 22:20:00")),
-        (pd.Timestamp("2020-05-13 14:00:00"), pd.Timestamp("2020-05-13 23:59:00")),
+        # (pd.Timestamp("2020-05-13 14:00:00"), pd.Timestamp("2020-05-13 23:59:00")),
         # (pd.Timestamp("2020-05-18 05:00:00"), pd.Timestamp("2020-05-18 05:30:00")),
         # (pd.Timestamp("2020-05-19 10:10:00"), pd.Timestamp("2020-05-19 11:00:00")),
         # (pd.Timestamp("2020-05-19 22:10:00"), pd.Timestamp("2020-05-20 20:00:00")),
