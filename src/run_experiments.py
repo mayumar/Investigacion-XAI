@@ -5,10 +5,9 @@ import pandas as pd
 from data_processing import preprocess_dataset
 from models import usar_cblof, usar_iforest, usar_ecod, usar_autoencoder, usar_hbos, usar_mcd, usar_vae
 import os
-from config import DATASETS, OUTPUT_DIR, RANDOM_STATE
-# from xai_utils import (shap_global_importances,
-#                        lime_local_explanation,
-#                        pdp_plot)
+from config import DATASETS, OUTPUT_DIR, SHAP_DIR, LIME_DIR, PDP_DIR
+from xai_utils import (usar_shap_global,usar_lime, usar_pdp)
+from evaluation import representar_fallos
 import warnings
 warnings.simplefilter(action='ignore', category=UserWarning)
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -18,17 +17,38 @@ def main():
     parser.add_argument("-d", "--dataset", type=str, required=True, choices={'metro', 'hydraulic'},
                         help="Nombre del dataset a usar: hydraulic o metro")
     parser.add_argument("-e", "--experiment", type=str, required=True,
-                        choices=["benchmark", "metrics", "shap", "lime", "pdp", "all_xai"],
+                        choices=["benchmark", "metricas", "representar_fallos", "shap", "lime", "pdp", "todo_xai"],
                         help="Tipo de experimento a ejecutar")
     parser.add_argument("-s", "--seeds", type=int, default=1, help="Numero de semillas a ejectuar")
+    parser.add_argument("-p", "--plot", action="store_true", help="Mostrar gráficas o no")
+    parser.add_argument("-t", "--evaluation", type=str, default="test", choices=["train", "test", "both"],
+                        help="Conjunto de datos a usar para la evaluación del experimento")
     
     args = parser.parse_args()
     dataset_name = args.dataset
     experiment_type = args.experiment
     n_seeds = args.seeds
-    
-    X_train, y_train, X_test, y_test, X_train_norm, X_test_norm, anomalias_fraccion = preprocess_dataset(dataset_name)
+    show_plot = args.plot
+    evaluation_type = args.evaluation
 
+    # Creamos las carpetas de salida si no existen
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    if experiment_type == "shap":
+        os.makedirs(SHAP_DIR, exist_ok=True)
+        os.makedirs(os.path.join(SHAP_DIR, dataset_name), exist_ok=True)
+
+    if experiment_type == "lime":
+        os.makedirs(LIME_DIR, exist_ok=True)
+        os.makedirs(os.path.join(LIME_DIR, dataset_name), exist_ok=True)
+
+    if experiment_type == "pdp":
+        os.makedirs(PDP_DIR, exist_ok=True)
+        os.makedirs(os.path.join(PDP_DIR, dataset_name), exist_ok=True)
+        
+
+    X_train, y_train, X_test, y_test, X_train_norm, X_test_norm, anomalias_fraccion = preprocess_dataset(dataset_name)
+    
     modelos = {
         'CBLOF': usar_cblof,
         'IForest': usar_iforest,
@@ -39,13 +59,12 @@ def main():
         'VAE': usar_vae,
     }
 
-
     importances = pd.DataFrame()
 
-    if experiment_type == "benchmark" or experiment_type == "metrics":
+    if evaluation_type == "both":
         metrics_type = ["train", "test"]
     else:
-        metrics_type = ["test"]
+        metrics_type = [evaluation_type]
 
     for type in metrics_type:
 
@@ -56,47 +75,61 @@ def main():
             for seed in range(n_seeds):
                 print(f'\nSemilla: {seed}')
                 # Entrenar modelo
+                if type == "train":
+                    X_ev = X_train.copy()
+                    X_ev_norm = X_train_norm.copy()
+                    y_ev = y_train.copy()
+                elif type == "test":
+                    X_ev = X_test.copy()
+                    X_ev_norm = X_test_norm.copy()
+                    y_ev = y_test.copy()
+
                 if experiment_type == "benchmark":
-                    if type == "train":
-                        metrics_df, model = model_function(X_train, y_train, X_train, y_train, metrics_df, False, None, seed)
-                        metrics_df, model = model_function(X_train_norm, y_train, X_train_norm, y_train, metrics_df, True, None, seed)
-                        metrics_df, model = model_function(X_train, y_train, X_train, y_train, metrics_df, False, anomalias_fraccion, seed)
-                        metrics_df, model = model_function(X_train_norm, y_train, X_train_norm, y_train, metrics_df, True, anomalias_fraccion, seed)
-                    elif type == "test":
-                        metrics_df, model = model_function(X_train, y_train, X_test, y_test, metrics_df, False, None, seed)
-                        metrics_df, model = model_function(X_train_norm, y_train, X_test_norm, y_test, metrics_df, True, None, seed)
-                        metrics_df, model = model_function(X_train, y_train, X_test, y_test, metrics_df, False, anomalias_fraccion, seed)
-                        metrics_df, model = model_function(X_train_norm, y_train, X_test_norm, y_test, metrics_df, True, anomalias_fraccion, seed)
+                    metrics_df, model = model_function(X_train, y_train, X_ev, y_ev, metrics_df, False, None, seed)
+                    metrics_df, model = model_function(X_train_norm, y_train, X_ev_norm, y_ev, metrics_df, True, None, seed)
+                    metrics_df, model = model_function(X_train, y_train, X_ev, y_ev, metrics_df, False, anomalias_fraccion, seed)
+                    metrics_df, model = model_function(X_train_norm, y_train, X_ev_norm, y_ev, metrics_df, True, anomalias_fraccion, seed)
                 elif dataset_name == "metro":
-                    if type == "train":
-                        metrics_df, model = model_function(X_train_norm, y_train, X_train_norm, y_train, metrics_df, True, None, seed)
-                    elif type == "test":
-                        metrics_df, model = model_function(X_train_norm, y_train, X_test_norm, y_test, metrics_df, True, None, seed)
+                    metrics_df, model = model_function(X_train_norm, y_train, X_ev_norm, y_ev, metrics_df, True, None, seed)
+                elif dataset_name == "hydraulic":
+                    metrics_df, model = model_function(X_train_norm, y_train, X_ev_norm, y_ev, metrics_df, True, anomalias_fraccion, seed)
+
+                if experiment_type == "representar_fallos":
+                    if dataset_name == "metro" or dataset_name == "hydraulic":
+                        representar_fallos(model, model_name, dataset_name, X_ev_norm, y_ev)
 
                 # SHAP
                 if experiment_type == "shap":
-                    print("shap")
-                    # importances = usar_shap_global(model, model_name, X_train_norm, X_test_norm, importances, True)
-                    # importances.to_excel(fr'rankings_after_{model_name}.xlsx', index=False)
+                    if dataset_name == "metro" or dataset_name == "hydraulic":
+                        importances = usar_shap_global(model, model_name, dataset_name, X_train_norm, X_ev_norm, importances, show_plot)
 
                 # LIME
                 if experiment_type == "lime":
-                    print("lime")
-                    # observations = [
-                    # TODO: Rellenar aquí para echar lime a andar
-                    # ]
-                    # usar_lime(model, model_name, X_train_norm, X_test_norm, observations)
+                    if dataset_name == "metro" or dataset_name == "hydraulic":
+                        usar_lime(model, model_name, dataset_name, X_train_norm, X_ev_norm)
 
                 # PDP
                 if experiment_type == "pdp":
-                    print("pdp")
-                    # usar_pdp(model, model_name, X_train_norm, y_train, showPlot=True)
+                    if dataset_name == "metro" or dataset_name == "hydraulic":
+                        usar_pdp(model, model_name, dataset_name, X_train_norm, y_train, show_plot)
 
-                if model_name == 'ECOD' or model_name == "HBOS":
+                if model_name == 'ECOD' or model_name == "HBOS": # No dependen de aleatoriedad
                     break
 
         if experiment_type == "benchmark" or experiment_type == "metrics":
-            metrics_df.to_excel(fr'{OUTPUT_DIR}/resultado_metricas_{dataset_name}_{type}.xlsx', index=False)
+            metrics_df.to_excel(fr'{OUTPUT_DIR}/resultado_{experiment_type}_{dataset_name}_{type}.xlsx', index=False)
+
+    # SHAP
+    if experiment_type == "shap":
+        # Ponemos 'Modelo' como primera columna
+        cols = importances.columns.tolist()
+        cols = ['Modelo'] + [col for col in cols if col != 'Modelo']
+        importances = importances[cols]
+
+        importances.to_excel(os.path.join(OUTPUT_DIR, fr'{dataset_name}_shap_rankings.xlsx'), index=False)
+
+
+
 
 if __name__ == "__main__":
     main()

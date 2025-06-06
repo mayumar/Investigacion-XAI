@@ -5,11 +5,11 @@ import shap
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-# from lime.lime_tabular import LimeTabularExplainer
-# import pdpbox.pdp as pdp
-from config import OUTPUT_DIR
+from lime.lime_tabular import LimeTabularExplainer
+import pdpbox.pdp as pdp
+from config import SHAP_DIR, LIME_DIR, PDP_DIR, DATASETS
 
-def usar_shap_global(clf, clf_name, X_train, X_test, importances_df, show_plot=True, failure_type=None):
+def usar_shap_global(clf, clf_name, dataset_name, X_train, X_test, importances_df, show_plot=True):
     # Crear un SHAP explainer
     explainer = shap.Explainer(clf.predict, X_train)
 
@@ -18,9 +18,11 @@ def usar_shap_global(clf, clf_name, X_train, X_test, importances_df, show_plot=T
 
     # Generar los reportes
     shap.plots.beeswarm(shap_values, show=show_plot)
-    fig = plt.gcf()
-    fig.savefig(f"shap_{clf_name}.png", bbox_inches='tight', dpi=300)
-    plt.close(fig)
+
+    if not show_plot:
+        fig = plt.gcf()
+        fig.savefig(os.path.join(os.path.join(SHAP_DIR, dataset_name), f"shap_{clf_name}.png"), bbox_inches='tight', dpi=300)
+        plt.close(fig)
 
     # Extraemos los valores shap
     shap_array = shap_values.values  # <- Accedemos a los valores puros
@@ -42,60 +44,47 @@ def usar_shap_global(clf, clf_name, X_train, X_test, importances_df, show_plot=T
 
     return importances_df
 
-def lime_local_explanation(clf, clf_name, X_train, X_test, observations, dataset_name):
-    """
-    Aplica LIME a las instancias indicadas (índices de filas en X_test),
-    guarda los PNG en outputs/figures/<dataset_name>/lime_<clf_name>_inst<ID>.png
-    """
-    fig_folder = os.path.join(OUTPUT_DIR, "figures", dataset_name)
-    os.makedirs(fig_folder, exist_ok=True)
-
+def usar_lime(clf, clf_name, dataset_name, X_train, X_test):
     lime_explainer = LimeTabularExplainer(
         X_train.values,
-        feature_names=X_train.columns.tolist(),
-        class_names=['NoFailure', 'Failure'],
-        mode='classification',
+        feature_names=X_train.columns,
         random_state=42
     )
 
-    for example in observations:
-        exp = lime_explainer.explain_instance(X_test.loc[example].values,
-                                              clf.predict_proba,
-                                              num_features=len(X_train.columns))
-        fig = exp.as_pyplot_figure()
-        # Nombre de archivo con dataset, clasificador e índice de instancia
-        fname = os.path.join(fig_folder,
-                             f"lime_{clf_name}_inst{str(example).replace(':','-')}.png")
-        fig.savefig(fname, bbox_inches='tight')
-        plt.close(fig)
+    for example in DATASETS[dataset_name]["observations"]:
+        print(f"Explicando instancia: {example}")
+        explanation = lime_explainer.explain_instance(X_test.loc[example], clf.predict_proba, num_features=len(X_train.columns))
+        # explanation.show_in_notebook(show_table=True)
+        fig = explanation.as_pyplot_figure()
+        fig.savefig(os.path.join(os.path.join(LIME_DIR, dataset_name), f"lime_explanation_{str(example).replace(" ", "_").replace(":", "-").replace("/", "-")}_{clf_name}.png"), bbox_inches='tight')
 
-def pdp_plot(clf, clf_name, X_train, y_train, dataset_name, show_plot=True):
-    """
-    Crea PDP para ciertas variables (ejemplo: 'Motor_current' si existe en X_train).
-    Guarda la figura en outputs/figures/<dataset_name>/pdp_<feature>_<clf_name>.png
-    """
-    fig_folder = os.path.join(OUTPUT_DIR, "figures", dataset_name)
-    os.makedirs(fig_folder, exist_ok=True)
 
-    df_combined = pd.concat([X_train, y_train], axis=1)
-    # Vamos a usar un ejemplo genérico: si existe 'Motor_current'
-    features_a_explorar = [f for f in ['Motor_current'] if f in X_train.columns]
+def usar_pdp(clf, clf_name, dataset_name, X_train, y_train, showPlot=True, showGridPoints=False):
+  df_combined = pd.concat([X_train, y_train], axis=1)
 
-    for feature in features_a_explorar:
-        pdp_iso = pdp.PDPIsolate(
-            model=clf,
-            dataset=df_combined,
-            model_features=X_train.columns.tolist(),
-            feature=feature,
-            num_grid_points=20
-        )
-        fig, axes = pdp_iso.plot(
-            plot_lines=True,
-            frac_to_plot=100,
-            plot_pts_dist=True
-        )
-        if show_plot:
-            fig.show()
-        fname = os.path.join(fig_folder, f"pdp_{feature}_{clf_name}.png")
-        fig.savefig(fname, bbox_inches='tight')
-        plt.close(fig)
+  for feature in X_train.columns:
+    # Creamos el PDP para una característica
+    pdp_feature = pdp.PDPIsolate(
+        model=clf,
+        df=df_combined,
+        n_classes=2,
+        model_features=X_train.columns,
+        feature=feature,
+        feature_name=feature
+    )
+
+    if showGridPoints:
+        print(pdp_feature.feature_info.grids)
+
+    # Graficamos
+    fig, axes = pdp_feature.plot(
+        plot_lines=True,
+        frac_to_plot=100,
+        plot_pts_dist=True,
+        plot_params={"pdp_hl": True, "line": {"hl_color": "#f46d43"}}
+    )
+
+    if showPlot:
+        fig.show()
+    else:
+        fig.write_image(os.path.join(os.path.join(PDP_DIR, dataset_name), fr"pdp_{feature}_{clf_name}.png"))

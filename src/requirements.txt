@@ -5,3 +5,6 @@ pyod
 torch
 shap
 openpyxl
+lime
+pdpbox
+kaleido

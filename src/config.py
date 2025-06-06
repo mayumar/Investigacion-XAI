@@ -10,8 +10,11 @@ import pandas as pd
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 DATA_PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed")
-OUTPUT_DIR = os.path.join(BASE_DIR, "results")
 INPUT_DIR = os.path.join(BASE_DIR, "datasets")
+OUTPUT_DIR = os.path.join(BASE_DIR, "results")
+SHAP_DIR = os.path.join(OUTPUT_DIR, "SHAP_plots")
+LIME_DIR = os.path.join(OUTPUT_DIR, "LIME_plots")
+PDP_DIR = os.path.join(OUTPUT_DIR, "PDP_plots")
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.4   # para datasets sin división temporal
@@ -50,12 +53,12 @@ DATASETS = {
         "fill_method": "ffill",
     },
     "hydraulic": {
-        "raw_folder": os.path.join(DATA_RAW_DIR, "hydraulic"),
-        "processed_folder": os.path.join(DATA_PROCESSED_DIR, "hydraulic"),
-        # Qué columnas eliminar tras el análisis de correlación
-        "drop_features": ['PS2', 'FS1', 'SE', 'PS6', 'CE', 'CP', 'FS2', 
-                          'TS1', 'TS2', 'TS3', 'TS4'],
-        # Cómo añadimos la columna Target (en hydraulic: cooler == 3 → Target=1)
-        "label_method": "hydraulic_profile",  
+        "ruta_origen": os.path.join(INPUT_DIR, "condition+monitoring+of+hydraulic+systems"),
+        "sensores": ['PS1', 'PS2', 'PS3', 'PS4', 'PS5', 'PS6', 'EPS1', 'FS1', 'FS2', 'TS1', 'TS2', 'TS3', 'TS4', 'VS1', 'CE', 'CP', 'SE'],
+        "error_types": ['cooler','valve','leakage','accumulator','stable'],
+        "target": {"cooler": 3},
+        # Columnas a eliminar despues de correlacion
+        "variables_eliminar": ['PS2', 'FS1', 'SE', 'PS6', 'CE', 'CP', 'FS2', 'TS1', 'TS2', 'TS3', 'TS4'], 
+        "observations": [5, 6, 255, 256]
     },
 }

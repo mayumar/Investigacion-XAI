@@ -7,33 +7,42 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from config import DATASETS, RANDOM_STATE, TEST_SIZE
 
-def load_hydraulic():
-    """
-    Carga todos los .txt de sensores y profile.txt, 
-    calcula medias por fila y crea columna 'Target'.
-    """
-    folder = DATASETS["hydraulic"]["raw_folder"]
-    sensor_files = ['PS1', 'PS2', 'PS3', 'PS4', 'PS5', 'PS6',
-                    'EPS1', 'FS1', 'FS2',
-                    'TS1', 'TS2', 'TS3', 'TS4',
-                    'VS1', 'CE', 'CP', 'SE']
+def load_data_hydraulic_systems():
+    print("--- Procesando dataset Condition monitoring of hydraulic systems ---")
     medias = {}
-    for sensor in sensor_files:
-        path_sensor = os.path.join(folder, f"{sensor}.txt")
-        df_sensor = pd.read_csv(path_sensor, sep="\t", header=None)
+
+    for sensor in DATASETS["hydraulic"]["sensores"]:
+        file_path = os.path.join(DATASETS["hydraulic"]["ruta_origen"], f"{sensor}.txt")
+        df_sensor = pd.read_csv(file_path, sep="\t", header=None)
+        # (axis=1 → media horizontal en cada muestra)
         medias[sensor] = df_sensor.mean(axis=1)
-    df_medias = pd.DataFrame(medias)
 
-    # Leer profile.txt
-    path_profile = os.path.join(folder, "profile.txt")
-    df_profile = pd.read_csv(path_profile, sep="\t", header=None,
-                             names=['cooler', 'valve', 'leakage', 'accumulator', 'stable'])
+    df = pd.DataFrame(medias)
 
-    # Definición de la etiqueta: cooler == 3 → Target = 1 (óptimo), else 0
-    optimal = (df_profile['cooler'] == 3)
-    df_medias['Target'] = optimal.astype(int)
+    profile_path = os.path.join(DATASETS["hydraulic"]["ruta_origen"], "profile.txt")
+    df_profile = pd.read_csv(profile_path, sep="\t", header=None, names=DATASETS["hydraulic"]["error_types"])
 
-    return df_medias  # DataFrame con columnas de sensores + Target
+    # 3) Definimos target binario
+    optimal = (
+        (df_profile['cooler'] == DATASETS["hydraulic"]["target"]["cooler"])
+    )
+
+    # Si alguna no óptima → 0, si no → 1
+    df['Target'] = optimal.astype(int)
+
+    df = df.drop(DATASETS["hydraulic"]["variables_eliminar"], axis=1, inplace=False) # Aqui se han quedado PS1 y PS5
+
+    X = df.drop(['Target'], axis=1)
+    y = df['Target']
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=TEST_SIZE,
+        random_state=42,
+        stratify=y
+        )
+
+    return X_train, X_test, y_train, y_test
 
 def load_data_metro():
     print("--- Procesando dataset MetroPT-3 ---")
@@ -79,11 +88,15 @@ def preprocess_dataset(dataset_name):
     # 1) Carga específica según dataset_name
     if dataset_name == "metro":
         X_train, X_test, y_train, y_test = load_data_metro()
+    elif dataset_name == "hydraulic":
+        X_train, X_test, y_train, y_test = load_data_hydraulic_systems()
     else:
         raise ValueError(f"Dataset desconocido: {dataset_name}")
     
     # Fracción de anomalías que tiene el conjunto de datos
-    anomalias_fraccion = np.count_nonzero(y_train.values) / len(y_train.values)
+    y = pd.concat([y_train, y_test], ignore_index=True)
+
+    anomalias_fraccion = np.count_nonzero(y.values) / len(y.values)
     print("Fracción de anomalías:", anomalias_fraccion)
 
     anomalias_porcentaje = round(anomalias_fraccion * 100, ndigits=4)
