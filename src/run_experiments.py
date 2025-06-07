@@ -17,7 +17,7 @@ def main():
     parser.add_argument("-d", "--dataset", type=str, required=True, choices={'metro', 'hydraulic'},
                         help="Nombre del dataset a usar: hydraulic o metro")
     parser.add_argument("-e", "--experiment", type=str, required=True,
-                        choices=["benchmark", "metricas", "representar_fallos", "shap", "lime", "pdp", "todo_xai"],
+                        choices=["benchmark", "metricas", "representar_fallos", "shap", "lime", "pdp"],
                         help="Tipo de experimento a ejecutar")
     parser.add_argument("-s", "--seeds", type=int, default=1, help="Numero de semillas a ejectuar")
     parser.add_argument("-p", "--plot", action="store_true", help="Mostrar gráficas o no")
@@ -47,7 +47,7 @@ def main():
         os.makedirs(os.path.join(PDP_DIR, dataset_name), exist_ok=True)
         
 
-    X_train, y_train, X_test, y_test, X_train_norm, X_test_norm, anomalias_fraccion = preprocess_dataset(dataset_name)
+    X_train, y_train, X_test, y_test, X_train_norm, X_test_norm, anomalias_fraccion = preprocess_dataset(dataset_name, show_plot)
     
     modelos = {
         'CBLOF': usar_cblof,
