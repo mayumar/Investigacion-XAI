@@ -19,7 +19,7 @@ def main():
     parser.add_argument("-e", "--experiment", type=str, required=True,
                         choices=["benchmark", "metricas", "representar_fallos", "shap", "lime", "pdp"],
                         help="Tipo de experimento a ejecutar")
-    parser.add_argument("-s", "--seeds", type=int, default=1, help="Numero de semillas a ejectuar")
+    parser.add_argument("-s", "--seeds", type=int, default=1, help="Numero de semillas a ejecutar")
     parser.add_argument("-p", "--plot", action="store_true", help="Mostrar gráficas o no")
     parser.add_argument("-t", "--testing", type=str, default="test", choices=["train", "test", "ambos"],
                         help="Conjunto de datos a usar para la evaluación del experimento")
