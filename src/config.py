@@ -59,6 +59,6 @@ DATASETS = {
         "target": {"cooler": 3},
         # Columnas a eliminar despues de correlacion
         "variables_eliminar": ['PS2', 'FS1', 'SE', 'PS6', 'CE', 'CP', 'FS2', 'TS1', 'TS2', 'TS3', 'TS4'], 
-        "observations": [5, 6, 255, 256]
+        "observations": [5, 255, 685, 403]
     },
 }

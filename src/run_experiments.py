@@ -5,7 +5,7 @@ import pandas as pd
 from data_processing import preprocess_dataset
 from models import usar_cblof, usar_iforest, usar_ecod, usar_autoencoder, usar_hbos, usar_mcd, usar_vae
 import os
-from config import DATASETS, OUTPUT_DIR, SHAP_DIR, LIME_DIR, PDP_DIR
+from config import OUTPUT_DIR, SHAP_DIR, LIME_DIR, PDP_DIR
 from xai_utils import (usar_shap_global,usar_lime, usar_pdp)
 from evaluation import representar_fallos
 import warnings
@@ -21,7 +21,7 @@ def main():
                         help="Tipo de experimento a ejecutar")
     parser.add_argument("-s", "--seeds", type=int, default=1, help="Numero de semillas a ejectuar")
     parser.add_argument("-p", "--plot", action="store_true", help="Mostrar gráficas o no")
-    parser.add_argument("-t", "--evaluation", type=str, default="test", choices=["train", "test", "both"],
+    parser.add_argument("-t", "--testing", type=str, default="test", choices=["train", "test", "ambos"],
                         help="Conjunto de datos a usar para la evaluación del experimento")
     
     args = parser.parse_args()
@@ -29,7 +29,7 @@ def main():
     experiment_type = args.experiment
     n_seeds = args.seeds
     show_plot = args.plot
-    evaluation_type = args.evaluation
+    evaluation_type = args.testing
 
     # Creamos las carpetas de salida si no existen
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -61,12 +61,12 @@ def main():
 
     importances = pd.DataFrame()
 
-    if evaluation_type == "both":
+    if evaluation_type == "ambos":
         metrics_type = ["train", "test"]
     else:
         metrics_type = [evaluation_type]
 
-    for type in metrics_type:
+    for subconjunto_ev in metrics_type:
 
         metrics_df = pd.DataFrame(columns=['Modelo', 'Semilla', 'Normalizado', 'Contaminacion', 'TN', 'FP', 'FN', 'TP', 'Accuracy', 'F1-score', 'Sensibilidad', 'Especificidad', 'Precisión', 'ROC-AUC', 'Tiempo (s)'])
         
@@ -74,16 +74,17 @@ def main():
             print(f'\n********** {model_name} **********')    
             for seed in range(n_seeds):
                 print(f'\nSemilla: {seed}')
-                # Entrenar modelo
-                if type == "train":
+
+                if subconjunto_ev == "train":
                     X_ev = X_train.copy()
                     X_ev_norm = X_train_norm.copy()
                     y_ev = y_train.copy()
-                elif type == "test":
+                else:
                     X_ev = X_test.copy()
                     X_ev_norm = X_test_norm.copy()
                     y_ev = y_test.copy()
 
+                # Entrenar modelo
                 if experiment_type == "benchmark":
                     metrics_df, model = model_function(X_train, y_train, X_ev, y_ev, metrics_df, False, None, seed)
                     metrics_df, model = model_function(X_train_norm, y_train, X_ev_norm, y_ev, metrics_df, True, None, seed)
@@ -113,11 +114,8 @@ def main():
                     if dataset_name == "metro" or dataset_name == "hydraulic":
                         usar_pdp(model, model_name, dataset_name, X_train_norm, y_train, show_plot)
 
-                if model_name == 'ECOD' or model_name == "HBOS": # No dependen de aleatoriedad
-                    break
-
-        if experiment_type == "benchmark" or experiment_type == "metrics":
-            metrics_df.to_excel(fr'{OUTPUT_DIR}/resultado_{experiment_type}_{dataset_name}_{type}.xlsx', index=False)
+        if experiment_type == "benchmark" or experiment_type == "metricas":
+            metrics_df.to_excel(fr'{OUTPUT_DIR}/resultado_{experiment_type}_{dataset_name}_{subconjunto_ev}.xlsx', index=False)
 
     # SHAP
     if experiment_type == "shap":

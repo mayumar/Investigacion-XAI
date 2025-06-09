@@ -87,4 +87,5 @@ def usar_pdp(clf, clf_name, dataset_name, X_train, y_train, showPlot=True, showG
     if showPlot:
         fig.show()
     else:
-        fig.write_image(os.path.join(os.path.join(PDP_DIR, dataset_name), fr"pdp_{feature}_{clf_name}.png"))
+        print(pdp_feature.feature_info.grids)
+        # fig.write_image(os.path.join(os.path.join(PDP_DIR, dataset_name), fr"pdp_{feature}_{clf_name}.png"))
